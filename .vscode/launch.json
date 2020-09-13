@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Debug (Launch) - Current File",
+            "request": "launch",
+            "mainClass": "${file}",
+            "args": "lake-forest_512_512.rgb 1 4 128"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-ImageDisplay<ImageDisplay_Java_fc17e1c9>",
+            "request": "launch",
+            "mainClass": "ImageDisplay",
+            "projectName": "ImageDisplay_Java_fc17e1c9"
+        }
+    ]
+}
