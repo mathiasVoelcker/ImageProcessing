@@ -22,44 +22,23 @@ public class ImageDisplay {
 		{
 			for(int x = 0; x < mainWidth; x++)
 			{
-				matrices.matrixRed[x][y] = bytes[x + (y * mainWidth)];
+				matrices.matrixRed[y][x] = bytes[x + (y * mainHeight)];
 			}
 		}
 		for(int y = 0; y < mainHeight; y++)
 		{
 			for(int x = 0; x < mainWidth; x++)
 			{
-				matrices.matrixGreen[x][y] = bytes[x + (y * mainWidth) + matrixSize];
+				matrices.matrixGreen[y][x] = bytes[x + (y * mainHeight) + matrixSize];
 			}
 		}
 		for(int y = 0; y < mainHeight; y++)
 		{
 			for(int x = 0; x < mainWidth; x++)
 			{
-				matrices.matrixBlue[x][y] = bytes[x + (y * mainWidth) + (matrixSize * 2)];
+				matrices.matrixBlue[y][x] = bytes[x + (y * mainHeight) + (matrixSize * 2)];;	
 			}
 		}
-	}
-
-	private int getPixelAvg(int line, int  column, byte[][] matrix)
-	{
-		var totalBits = 0;
-		var totalPix = 0;
-		for (int l = line - 1; l <= line + 1; l++)
-		{
-			for (int c = column - 1; c <= column + 1; c++)
-			{
-				if (l >= 0 && l < matrix.length)
-				{
-					if (c >= 0 && c < matrix.length)
-					{
-						totalBits++;
-						totalPix += matrix[l][c];
-					}
-				}
-			}
-		}
-		return totalPix / totalBits;
 	}
 
 	private int getBitsFromLog(int bits, int logCenter)
@@ -74,9 +53,30 @@ public class ImageDisplay {
 			return logCenter - (int)Math.pow(256, exp);
 		}
 		else return bits;
-		// temp = (int)Math.pow(256, (quantBit / 256));
-		// if (temp < logCenter)
-		// 	return 
+	}
+
+	private int getPixelAvg(int line, int  column, byte[][] matrix, int filterRatio)
+	{
+		var totalBits = 0;
+		var totalPix = 0;
+		int range =  filterRatio >= 2 ? filterRatio / 2 : 1;
+		
+		for (int c = column - range; c <= column + range; c++)
+		{
+			if (c >= 0 && c < matrix.length)
+			{
+				for (int l = line - range; l <= line + range; l++) 
+				{
+					if (l >= 0 && l < matrix.length)
+					{
+						totalBits++;
+						var mValue = matrix[l][c] & 0xff;
+						totalPix += mValue;
+					}
+				}
+			}
+		}
+		return totalPix / totalBits;
 	}
 
 	/** Read Image RGB
@@ -96,72 +96,63 @@ public class ImageDisplay {
 			byte[] bytes = new byte[(int) len];
 			
 			raf.read(bytes);
+			raf.close();
 			byte[][] matrixRed = new byte[mainHeight][mainWidth];
 			byte[][] matrixGreen = new byte[mainHeight][mainWidth];
 			byte[][] matrixBlue = new byte[mainHeight][mainWidth];
 			var matrices = new Matrices(matrixRed, matrixGreen, matrixBlue);
 			getMatrixes(matrices, bytes);
 
-			var sizeRatio = (Math.pow(mainHeight / (float)height, 2));
 			int totalBits = (int)Math.pow(2, quant);
 			int quantRatio = 256 / totalBits;
-			float bytesRatio = 1 / totalBits;
 
-			for(int y = 0; y < height; y++)
+			for(int l = 0; l < height; l++)
 			{
-				for(int x = 0; x < width; x++)
+				for(int c = 0; c < width; c++)
 				{
-					var realX = (x * mainHeight) / height;
-					var realY = (y * mainHeight) / height;
+					var scaledL = (l * mainHeight) / height;
+					var scaledC = (c * mainWidth) / width;
 
-					// byte a = 0;
-					byte r = matrixRed[realX][realY];
-					byte g = matrixGreen[realX][realY];
-					byte b = matrixBlue[realX][realY];
+					byte r, g, b;
+					if (height == mainHeight)
+					{
+						r = matrixRed[scaledL][scaledC];
+						g = matrixGreen[scaledL][scaledC];
+						b = matrixBlue[scaledL][scaledC];	
+					}
+					else {
+						var filterRatio = mainHeight / height;
+						r = (byte)getPixelAvg(scaledL, scaledC, matrixRed, filterRatio);
+						g = (byte)getPixelAvg(scaledL, scaledC, matrixGreen, filterRatio);
+						b = (byte)getPixelAvg(scaledL, scaledC, matrixBlue, filterRatio);
+					}
 
-					// byte r = (byte)getPixelAvg(realX, realY, matrixRed);
-					// byte g = (byte)getPixelAvg(realX, realY, matrixGreen);
-					// byte b = (byte)getPixelAvg(realX, realY, matrixBlue);
-
-					//make it positive
 					var rp = r & 0xff;
 					var gp = g & 0xff;
 					var bp = b & 0xff;
 
-					//round according to quantization
-					// rp = Math.round(rp / (float)quantRatio) * quantRatio;
-					// gp = Math.round(gp / (float)quantRatio) * quantRatio;
-					// bp = Math.round(bp / (float)quantRatio) * quantRatio;
-
-					
+					//round according to quantization					
 					rp = (rp / quantRatio) * quantRatio;
 					gp = (gp / quantRatio) * quantRatio;
 					bp = (bp / quantRatio) * quantRatio;
-					if (mode != -1)
+					if (mode != -1 && quantRatio != 1)
 					{
 						rp = getBitsFromLog(rp, mode);
 						gp = getBitsFromLog(gp, mode);
 						bp = getBitsFromLog(bp, mode);
-						// rp = (int)(logCustomBase(256, rp) * 256);
-						// gp = (int)(logCustomBase(256, gp) * 256);
-						// bp = (int)(logCustomBase(256, bp) * 256);
 					}
 
 					//the first 8 bits are blue, bits 9 - 16 are green, and bits 17 - 24 are red
 					int rb = (rp << 16);
 					int gb = (gp << 8);
 					int bb = (bp << 0);
-					//adding 
+					//combining red, green and blue 
 					int pix = 0xff000000 | rb | gb | bb;
-					//int pix = ((a << 24) + (r << 16) + (g << 8) + b);
-					img.setRGB(x,y,pix);
-					if (y + 1 == height && x + 1 == width) 
-					{
-						System.out.println("Last Line");
-					}
+					
+
+					img.setRGB(c, l, pix);
 				}
 			}
-			raf.close();
 		}
 		catch (FileNotFoundException e) 
 		{
@@ -199,8 +190,6 @@ public class ImageDisplay {
 			System.out.println("Invalid mode. Mode setted to -1 (Uniform quantization)");
 		}
 
-		System.out.println("The third parameter was: " + quantization);
-
 		// Read in the specified image
 		int newHeight = Math.round(mainHeight * scale);
 		int newWidth = Math.round(mainWidth * scale);
@@ -228,11 +217,6 @@ public class ImageDisplay {
 
 		frame.pack();
 		frame.setVisible(true);
-	}
-
-	private double logCustomBase(int base, int x)
-	{
-		return Math.log10(x) / Math.log10(base);
 	}
 
 	public static void main(String[] args) {

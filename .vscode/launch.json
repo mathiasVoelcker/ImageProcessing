@@ -9,7 +9,7 @@
             "name": "Debug (Launch) - Current File",
             "request": "launch",
             "mainClass": "${file}",
-            "args": "lake-forest_512_512.rgb 1 4 128"
+            "args": "Lenna_512_512.rgb 1 8 -1"
         },
         {
             "type": "java",
